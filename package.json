@@ -1,0 +1,16 @@
+{
+  "name": "fieldflow-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A field-service scheduling app, built to be broken and then fixed by agents.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.ts",
+    "test": "node --test src/*.test.ts",
+    "seed": "python warehouse/seed.py"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
