@@ -1,15 +1,19 @@
-import { REGIONS, type RegionId } from './types.ts';
+import type { RegionId } from './types.ts';
+
+/**
+ * UTC offsets per region, in hours.
+ *
+ * Resolved once here rather than per call so the hot path does not pay for a
+ * timezone lookup on every candidate slot.
+ */
+const REGION_OFFSETS: Record<RegionId, number> = {
+  leeds: 2,
+  munich: 2,
+};
 
 export interface Window {
   start: Date;
   end: Date;
-}
-
-/** How far ahead of UTC a timezone is on a given instant, in hours. */
-function utcOffsetHours(timeZone: string, at: Date): number {
-  const local = new Date(at.toLocaleString('en-US', { timeZone }));
-  const utc = new Date(at.toLocaleString('en-US', { timeZone: 'UTC' }));
-  return Math.round((local.getTime() - utc.getTime()) / 3_600_000);
 }
 
 function atUtc(date: string, hhmm: string, offsetHours: number): Date {
@@ -24,8 +28,7 @@ export function workingWindowUtc(
   regionId: RegionId,
   schedule: { start: string; end: string },
 ): Window {
-  const noon = new Date(`${date}T12:00:00.000Z`);
-  const offset = utcOffsetHours(REGIONS[regionId].timeZone, noon);
+  const offset = REGION_OFFSETS[regionId];
   return {
     start: atUtc(date, schedule.start, offset),
     end: atUtc(date, schedule.end, offset),
