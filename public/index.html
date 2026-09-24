@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FieldFlow</title>
+<style>
+  :root { color-scheme: light; --bg:#f7f7f5; --card:#fff; --ink:#1a1a18; --muted:#6b6b66; --line:#e3e3df; --accent:#2f5d50; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+  .wrap { max-width:760px; margin:0 auto; padding:32px 16px; }
+  h1 { font-size:22px; margin:0 0 4px; letter-spacing:-.01em; }
+  .sub { color:var(--muted); margin:0 0 24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:16px; }
+  label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
+  input, select { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font:inherit; background:#fff; color:inherit; }
+  button { padding:9px 16px; border:0; border-radius:6px; background:var(--accent); color:#fff; font:inherit; font-weight:500; cursor:pointer; }
+  button:hover { filter:brightness(1.1); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+  .row > div { flex:1 1 140px; }
+  ul { list-style:none; margin:12px 0 0; padding:0; }
+  li { padding:9px 12px; border:1px solid var(--line); border-radius:6px; margin-bottom:6px; display:flex; justify-content:space-between; gap:12px; }
+  .empty { color:var(--muted); font-style:italic; }
+  .err { color:#a33; font-size:13px; margin-top:8px; }
+  .meta { color:var(--muted); font-size:13px; }
+  h2 { font-size:15px; margin:20px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FieldFlow</h1>
+  <p class="sub">Field-service scheduling</p>
+
+  <div class="card" id="signin-card">
+    <div class="row">
+      <div>
+        <label for="email">Email</label>
+        <input id="email" type="email" placeholder="admin@fieldflow.test" autocomplete="username">
+      </div>
+      <div>
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password">
+      </div>
+      <div style="flex:0 0 auto">
+        <button id="signin">Sign in</button>
+      </div>
+    </div>
+    <p class="err" id="signin-error" hidden>Unknown account</p>
+  </div>
+
+  <div id="app" hidden>
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="date">Date</label>
+          <input id="date" type="date" value="2026-09-25">
+        </div>
+        <div>
+          <label for="region">Region</label>
+          <select id="region">
+            <option value="leeds">Leeds</option>
+            <option value="munich">Munich</option>
+          </select>
+        </div>
+        <div style="flex:0 0 auto">
+          <button id="load">Load</button>
+        </div>
+      </div>
+
+      <h2>Available slots</h2>
+      <p class="meta" id="slot-summary"></p>
+      <ul id="slot-list" data-testid="slot-list"></ul>
+
+      <h2>Booked visits</h2>
+      <ul id="visit-list" data-testid="visit-list"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const TZ = { leeds: 'Europe/London', munich: 'Europe/Berlin' };
+
+function localTime(iso, region) {
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    hour: '2-digit', minute: '2-digit', timeZone: TZ[region],
+  });
+}
+
+document.getElementById('signin').addEventListener('click', () => {
+  const email = document.getElementById('email').value.trim();
+  const ok = email.endsWith('@fieldflow.test');
+  document.getElementById('signin-error').hidden = ok;
+  if (!ok) return;
+  document.getElementById('signin-card').hidden = true;
+  document.getElementById('app').hidden = false;
+  load();
+});
+
+async function load() {
+  const date = document.getElementById('date').value;
+  const region = document.getElementById('region').value;
+
+  const slotList = document.getElementById('slot-list');
+  const visitList = document.getElementById('visit-list');
+  slotList.innerHTML = '';
+  visitList.innerHTML = '';
+
+  const [slots, visits] = await Promise.all([
+    fetch(`/api/slots?date=${date}&region=${region}&duration=120`).then((r) => r.json()),
+    fetch(`/api/visits?date=${date}&region=${region}`).then((r) => r.json()),
+  ]);
+
+  const summary = document.getElementById('slot-summary');
+  if (slots.available.length === 0) {
+    summary.textContent = '';
+    slotList.innerHTML = '<li class="empty">No slots available</li>';
+  } else {
+    const first = localTime(slots.available[0].startsAt, region);
+    const last = localTime(slots.available[slots.available.length - 1].startsAt, region);
+    summary.textContent = `${slots.available.length} slots, ${first} to ${last} local`;
+    for (const s of slots.available) {
+      const li = document.createElement('li');
+      li.dataset.testid = 'slot';
+      li.innerHTML = `<span>${localTime(s.startsAt, region)}</span><span class="meta">to ${localTime(s.endsAt, region)}</span>`;
+      slotList.appendChild(li);
+    }
+  }
+
+  if (visits.length === 0) {
+    visitList.innerHTML = '<li class="empty">No visits for this day</li>';
+  } else {
+    for (const v of visits) {
+      const li = document.createElement('li');
+      li.dataset.testid = 'visit';
+      li.innerHTML = `<span>${v.customerName}</span><span class="meta">${localTime(v.startsAt, region)} · ${v.status}</span>`;
+      visitList.appendChild(li);
+    }
+  }
+}
+
+document.getElementById('load').addEventListener('click', load);
+</script>
+</body>
+</html>
