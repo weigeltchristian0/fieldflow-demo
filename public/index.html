@@ -23,6 +23,8 @@
   .empty { color:var(--muted); font-style:italic; }
   .err { color:#a33; font-size:13px; margin-top:8px; }
   .meta { color:var(--muted); font-size:13px; }
+  .gap { border:0; padding:2px 12px; margin:0 0 6px; font-size:12px; color:var(--muted); }
+  .gap.long { color:#8a5a00; font-weight:600; }
   h2 { font-size:15px; margin:20px 0 0; }
 </style>
 </head>
@@ -105,9 +107,10 @@ async function load() {
   slotList.innerHTML = '';
   visitList.innerHTML = '';
 
-  const [slots, visits] = await Promise.all([
+  const [slots, visits, gaps] = await Promise.all([
     fetch(`/api/slots?date=${date}&region=${region}&duration=120`).then((r) => r.json()),
     fetch(`/api/visits?date=${date}&region=${region}`).then((r) => r.json()),
+    fetch(`/api/gaps?date=${date}&region=${region}`).then((r) => r.json()),
   ]);
 
   const summary = document.getElementById('slot-summary');
@@ -134,6 +137,15 @@ async function load() {
       li.dataset.testid = 'visit';
       li.innerHTML = `<span>${v.customerName}</span><span class="meta">${localTime(v.startsAt, region)} · ${v.status}</span>`;
       visitList.appendChild(li);
+
+      const gap = gaps.find((g) => g.afterVisitId === v.id);
+      if (gap) {
+        const chip = document.createElement('li');
+        chip.dataset.testid = 'gap';
+        chip.className = gap.long ? 'gap long' : 'gap';
+        chip.textContent = `${gap.minutes} min gap`;
+        visitList.appendChild(chip);
+      }
     }
   }
 }

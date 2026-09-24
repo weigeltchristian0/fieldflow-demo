@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { query } from './db.ts';
 import { suggestSlots } from './suggest.ts';
+import { gapsBetween } from './gaps.ts';
 import { REGIONS, type RegionId, type Visit } from './types.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -48,6 +49,15 @@ app.get('/api/visits', (req, res) => {
     return;
   }
   res.json(visitsFor(date, region));
+});
+
+app.get('/api/gaps', (req, res) => {
+  const { date, region } = req.query;
+  if (typeof date !== 'string' || !isRegionId(region)) {
+    res.status(400).json({ error: 'date and region are required' });
+    return;
+  }
+  res.json(gapsBetween(visitsFor(date, region)));
 });
 
 app.get('/api/slots', (req, res) => {
